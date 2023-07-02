@@ -188,7 +188,17 @@ listSessions() {
 		$X "$change" -t "$1" 2>/dev/null || ($X new-session -d -s "$1" && $X "$change" -t "$1")
 		return
 	fi
-	session=$($X list-sessions -F "#{session_name}" 2>/dev/null | fzf --exit-0) && $X "$change" -t "$session" || return
+	session=$($X list-sessions -F "#{session_name}" 2>/dev/null | fzf) && $X "$change" -t "$session" || return
+}
+
+killAllSessions() {
+	if [ -n "$TMUX" ]; then
+		echo "Cannot run this command inside a tmux session"
+		exit 1
+	fi
+	$X list-sessions | grep -E -v '\(attached\)$' | while IFS='\n' read -r line; do
+		$X kill-session -t "${line%%:*}"
+	done
 }
 
 createWindow() {
@@ -214,6 +224,7 @@ helpMenu() {
 	echo "-b: break active pane to new window"
 	echo "-s: create session. Followed by <session-name>"
 	echo "-k: kill session. Followed by <session-name> (cannot be attached session)"
+	echo "-K: kill session. Followed by <session-name> (cannot be attached session)"
 	echo "-n: create new session"
 	echo "-s: list / create new session"
 	echo "-c: send command to each pane. Followed by <arg>"
@@ -391,6 +402,7 @@ while [ "$#" -gt 0 ]; do
 		shift
 		simpleCommands "$arg"
 		;;
+	-K | --kill-all) killAllSessions ;;
 	-k | --kill)
 		if [ "$#" -gt 0 ]; then
 			arg="$*"
