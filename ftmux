@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 
-SERVER="Dev"
 WORKSPACE="$HOME/personal/workspace"
-X="tmux -L ${SERVER}"
+X="tmux -L Dev"
+
+#-------------------------------------------------------------------------------
+#  Helpers
+#-------------------------------------------------------------------------------
 
 getPanesIds() {
 	tag=$1
@@ -85,6 +88,50 @@ getWindowPaneId() {
 	echo "${ids[$paneIndex]}"
 }
 
+hasSession() {
+	session=$1
+
+	cmd=$($X has-session -t "$session" &>/dev/null && echo "true" || echo "false")
+
+	if [ "$cmd" == "true" ]; then
+		echo "true"
+	else
+		echo "false"
+	fi
+
+	# sessionExists=$($X list-sessions -F \#S | grep "$session")
+	# if [ "$session" == "$sessionExists" ]; then
+	# 	echo "true"
+	# else
+	# 	echo "false"
+	# fi
+}
+
+createWindow() {
+	session=$1
+	window=$2
+	shift
+	shift
+	hasWindow=$($X list-windows -t "$session" | grep "$window")
+	if [[ -z "$hasWindow" ]]; then
+		($X neww -t "$session": -n "$window" -d "$@")
+	else
+		echo duplicate window: "$window"
+	fi
+}
+
+checkEmpty() {
+	arg="$1"
+	if [ -z "$arg" ]; then
+		echo "some argument(s) are missing."
+		exit 1
+	fi
+}
+
+#-------------------------------------------------------------------------------
+#  Commands
+#-------------------------------------------------------------------------------
+
 sessionNumber() {
 	res=$($X display -p '#{session_id}' | cut -b 2-)
 	echo "$res"
@@ -103,23 +150,35 @@ breakPane() {
 	$X break-pane -P -F '#{session_name}:#{window_index}.#{pane_index}' -n 'break'
 }
 
-hasSession() {
-	session=$1
-
-	cmd=$($X has-session -t "$session" &>/dev/null && echo "true" || echo "false")
-
-	if [ "$cmd" == "true" ]; then
-		echo "true"
-	else
-		echo "false"
+prevPane() {
+	paneIdx=$($X display -p '#{pane_index}')
+	prevIdx=$((paneIdx - 1))
+	count=$($X list-panes -F '#{pane_id}' | awk 'END {print NR}')
+	if [ "$prevIdx" -lt 1 ]; then
+		prevIdx=$count
 	fi
+	prevId=$($X list-panes -F '#{pane_id}' | xargs | awk -v var="$prevIdx" '{print $var}')
+	($X select-pane -Z -t "$prevId")
+}
 
-	# sessionExists=$($X list-sessions -F \#S | grep "$session")
-	# if [ "$session" == "$sessionExists" ]; then
-	# 	echo "true"
-	# else
-	# 	echo "false"
-	# fi
+nextPane() {
+	paneIdx=$($X display -p '#{pane_index}')
+	nextIdx=$((paneIdx + 1))
+	count=$($X list-panes -F '#{pane_id}' | awk 'END {print NR}')
+	if [ "$count" -lt "$nextIdx" ]; then
+		nextIdx=1
+	fi
+	nextId=$($X list-panes -F '#{pane_id}' | xargs | awk -v var=$nextIdx '{print $var}')
+	($X select-pane -Z -t "$nextId")
+}
+
+simpleCommands() {
+	case "$arg" in
+	"-p") ($X run-shell -b 'echo pane id is #{pane_id}') ;;
+	"-pt") ($X run-shell -b 'echo pane title is #{pane_title}') ;;
+	"-w") $X run-shell -b 'echo window name is #{window_name}' ;;
+	*) echo "Unavailables ... $cmd" ;;
+	esac
 }
 
 createSession() {
@@ -201,17 +260,10 @@ killAllSessions() {
 	done
 }
 
-createWindow() {
-	session=$1
-	window=$2
+sendKeysToPane() {
+	paneId=$1
 	shift
-	shift
-	hasWindow=$($X list-windows -t "$session" | grep "$window")
-	if [[ -z "$hasWindow" ]]; then
-		($X neww -t "$session": -n "$window" -d "$@")
-	else
-		echo duplicate window: "$window"
-	fi
+	$X send-keys -t "$paneId" "$@"
 }
 
 helpMenu() {
@@ -224,6 +276,7 @@ helpMenu() {
 	echo "-pp, --prevpane     select previous pane"
 	echo "-r, --resize        resize (equal splits)"
 	echo "-num                session number"
+	echo "-name               session name"
 	echo "-b, --break         break active pane to new window"
 	echo "-k, --kill          kill session. Followed by <session-name> (cannot be attached session)"
 	echo "-K, --kill-all      kill session. Followed by <session-name> (cannot be attached session)"
@@ -241,44 +294,9 @@ helpMenu() {
 	echo "                          -w: window name"
 }
 
-checkEmpty() {
-	arg="$1"
-	if [ -z "$arg" ]; then
-		echo "missing actual command."
-		exit 1
-	fi
-}
-
-prevPane() {
-	paneIdx=$($X display -p '#{pane_index}')
-	prevIdx=$((paneIdx - 1))
-	count=$($X list-panes -F '#{pane_id}' | awk 'END {print NR}')
-	if [ "$prevIdx" -lt 1 ]; then
-		prevIdx=$count
-	fi
-	prevId=$($X list-panes -F '#{pane_id}' | xargs | awk -v var="$prevIdx" '{print $var}')
-	($X select-pane -Z -t "$prevId")
-}
-
-nextPane() {
-	paneIdx=$($X display -p '#{pane_index}')
-	nextIdx=$((paneIdx + 1))
-	count=$($X list-panes -F '#{pane_id}' | awk 'END {print NR}')
-	if [ "$count" -lt "$nextIdx" ]; then
-		nextIdx=1
-	fi
-	nextId=$($X list-panes -F '#{pane_id}' | xargs | awk -v var=$nextIdx '{print $var}')
-	($X select-pane -Z -t "$nextId")
-}
-
-simpleCommands() {
-	case "$arg" in
-	"-p") ($X run-shell -b 'echo pane id is #{pane_id}') ;;
-	"-pt") ($X run-shell -b 'echo pane title is #{pane_title}') ;;
-	"-w") $X run-shell -b 'echo window name is #{window_name}' ;;
-	*) echo "Unavailables ... $cmd" ;;
-	esac
-}
+#-------------------------------------------------------------------------------
+#  Workspaces
+#-------------------------------------------------------------------------------
 
 firstSession() {
 	session="rvim"
@@ -310,14 +328,14 @@ originMedia() {
 	firstPane=$(getWindowPaneId "$firstWindow" 0)
 	splitPane -v -c "$repo/om-admin" -t "$firstPane"
 	secondPane=$(getWindowPaneId "$firstWindow" 1)
-	$X send-keys -t "$secondPane" "yarn dev" "C-m"
+	sendKeysToPane "$secondPane" "yarn dev" "C-m"
 
 	# api
 	secondWindow=$(getSessionWindowId "$session" 1)
 	firstPane=$(getWindowPaneId "$secondWindow" 0)
 	splitPane -v -c "$repo/om-api" -t "$firstPane"
 	secondPane=$(getWindowPaneId "$secondWindow" 1)
-	$X send-keys -t "$secondPane" "go run main.go local_dev" "C-m"
+	sendKeysToPane "$secondPane" "go run main.go local_dev" "C-m"
 
 	# core
 	thirdWindow=$(getSessionWindowId "$session" 2)
@@ -341,9 +359,13 @@ coaNodejsApi() {
 	secondWindow=$(getSessionWindowId "$session" 1)
 	firstPane=$(getWindowPaneId "$secondWindow" 0)
 	splitPane -v -c "$repo" -t "$firstPane"
-	$X send-keys -t "$firstPane" "yarn dev" "C-m"
+	sendKeysToPane "$firstPane" "yarn dev" "C-m"
 
 }
+
+#-------------------------------------------------------------------------------
+#  Options
+#-------------------------------------------------------------------------------
 
 while [ "$#" -gt 0 ]; do
 	curr=$1
@@ -361,6 +383,20 @@ while [ "$#" -gt 0 ]; do
 	--first) firstSession ;;
 	--om) originMedia ;;
 	--coa) coaNodejsApi ;;
+	--keys)
+		pId=$1
+		shift
+		checkEmpty "$pId"
+		sendKeysToPane "$pId" "$@"
+		# Use the read command to split the input string into an array
+		read -ra string_array <<<"$@"
+		count="${#string_array[@]}"
+		while [ "$count" -gt 0 ]; do
+			# echo "Count: $count"
+			shift
+			((count--))
+		done
+		;;
 	-c | --command)
 		arg=$1
 		checkEmpty "$arg"
@@ -395,7 +431,7 @@ while [ "$#" -gt 0 ]; do
 			curr=$(echo "$panes" | cut -d ' ' -f $cc)
 			cc=$((cc + 1))
 			# echo sending cmd: "$cmd" to "$curr" hello
-			$X send-keys -t "$curr" "$cmd" "C-m"
+			sendKeysToPane "$curr" "$cmd" "C-m"
 		done
 		;;
 	-t)

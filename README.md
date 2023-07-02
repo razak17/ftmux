@@ -1,6 +1,6 @@
 # Ftmux
 
-Awesome tmux utils to maximize productivity
+Tmux utils to maximize productivity
 
 # TODO
 
