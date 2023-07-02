@@ -1,0 +1,416 @@
+#!/usr/bin/env bash
+
+SERVER="Dev"
+WORKSPACE="$HOME/personal/workspace"
+X="tmux -L ${SERVER}"
+
+getPanesIds() {
+	tag=$1
+	sessionOrWindowId=$2
+	case "$tag" in
+	"-p") paneId=$($X display -p '#{pane_id}') ;;
+	"-s") paneId=$($X list-panes -s -F '#D' -t "$sessionOrWindowId") ;;
+	"-w") paneId=$($X list-panes -F '#D' -t "$sessionOrWindowId") ;;
+	"-a") paneId=$($X list-panes -a -F '#D') ;;
+	*) echo "Unavailable command... $curr" ;;
+	esac
+	echo "$paneId"
+}
+
+getWindowsIds() {
+	tag=$1
+	session=$2
+	case "$tag" in
+	"-s") windowIds=$($X list-windows -F '#{window_id}' -t "$session") ;;
+	"-a") windowIds=$($X list-windows -a -F '#{window_id}') ;;
+	*) echo "Unavailable command... $curr" ;;
+	esac
+	echo "$windowIds"
+}
+
+panesList() {
+	tag=$1
+	shift
+	case "$tag" in
+	"-a") panes=$($X list-panes -a -F '#D') ;;
+	"-w") panes=$($X list-panes -F '#D') ;;
+	"-s")
+		if [ $# -gt 0 ]; then
+			panes=$($X list-panes -sF "#D" -t "$@")
+		else
+			echo "option requires an argument a target session"
+			exit 1
+		fi
+		;;
+	*) echo "Unavailable command... $curr" ;;
+	esac
+	echo "$panes"
+}
+
+splitPane() {
+	split=$1
+	shift
+	cmd="$X splitw"
+	case "$split" in
+	-v) cmd="$cmd -h $*" ;;
+	-h) cmd="$cmd -v $*" ;;
+	*) echo "Unavailable command... $curr" ;;
+	esac
+	eval "$cmd"
+}
+
+getSessionWindowId() {
+	session=$1
+	windowIndex=$2
+	shift
+	shift
+	if [ $# -gt 0 ] || [ "$session" == '' ] || [ "$windowIndex" == '' ]; then
+		echo "error: getSessionWindowId requires two arguments" && exit 1
+	fi
+	cmd=$(getWindowsIds -s "$session" | awk '{ printf "%s ", $0 }')
+	IFS=' ' read -ra ids <<<"$cmd"
+	echo "${ids[$windowIndex]}"
+}
+
+getWindowPaneId() {
+	window=$1
+	paneIndex=$2
+	shift
+	shift
+	if [ $# -gt 0 ] || [ "$window" == '' ] || [ "$paneIndex" == '' ]; then
+		echo "error: getWindowPaneId requires two arguments" && exit 1
+	fi
+	panesIds=$(getPanesIds -w "$window" | awk '{ printf "%s ", $0 }')
+	IFS=' ' read -ra ids <<<"$panesIds"
+	echo "${ids[$paneIndex]}"
+}
+
+sessionNumber() {
+	res=$($X display -p '#{session_id}' | cut -b 2-)
+	echo "$res"
+}
+
+sessionName() {
+	res=$($X display -p '#{session_name}')
+	echo "$res"
+}
+
+resizePane() {
+	($X resizep -x 50% -y 50%)
+}
+
+breakPane() {
+	$X break-pane -P -F '#{session_name}:#{window_index}.#{pane_index}' -n 'break'
+}
+
+hasSession() {
+	session=$1
+
+	cmd=$($X has-session -t "$session" &>/dev/null && echo "true" || echo "false")
+
+	if [ "$cmd" == "true" ]; then
+		echo "true"
+	else
+		echo "false"
+	fi
+
+	# sessionExists=$($X list-sessions -F \#S | grep "$session")
+	# if [ "$session" == "$sessionExists" ]; then
+	# 	echo "true"
+	# else
+	# 	echo "false"
+	# fi
+}
+
+createSession() {
+	session=$1
+	window=$2
+	shift
+	shift
+
+	sessionExists=$(hasSession "$session")
+	if [ "$sessionExists" == "true" ]; then
+		echo "Session '$session' already exists. Aborting ..." && exit 1
+	fi
+
+	# ($X list-sessions -F \#S | awk '{print $1}')
+	# printf "hasSession: %s.\n" "$hasSession"
+	# printf "session: %s, window: %s.\n" "$session" "$window"
+	if [ "$#" -gt 0 ]; then
+		cmd="$X new -s $session -d -c$* -n $window > /dev/null 2>&1"
+	elif [ -z "$window" ]; then
+		cmd="$X new -d -s $session > /dev/null 2>&1"
+	else
+		cmd="$X new -s $session -d -n $window > /dev/null 2>&1"
+	fi
+	printf "session '%s' has been created.\n" "$session"
+	eval "$cmd"
+
+	# printf "session '%s' has been created.\n" "$session"
+	# $X attach-session -t "$session" 2>/dev/null || $X new -s "$session" -d -n "$window"
+	# $X attach-session -t "$session" 2>/dev/null || echo "lalal"
+}
+
+killSession() {
+	session=$1
+	current=$($X display -p '#S')
+	target=$($X list-sessions -F \#S | grep "$session")
+
+	printf "session: %s, target: %s.\n" "$session" "$target"
+	shift
+	if [ "$current" == "$session" ]; then
+		printf "cannot delete attached session '%s'.\n" "$session"
+		exit 1
+	fi
+	if [ "$target" == "$session" ]; then
+		printf "session '%s' has been deleted.\n" "$session"
+		($X kill-session -t "$session")
+	else
+		printf "session '%s' does not exist. Available sessions:\n" "$session"
+		($X list-sessions)
+	fi
+	exit 1
+}
+
+breakIntoSession() {
+	paneIdx=$($X display -p '#{pane_index}')
+	window_name=$($X display -p '#{window_name}')
+	createSession "$window_name"
+	$X kill-pane -t "$paneIdx"
+}
+
+# will attach to (if it exists), else it will create it.
+# with one session open, it will attach to that session.
+# with more than one session open it will let you select the session via fzf.
+listSessions() {
+	[[ -n "$TMUX" ]] && change="switch-client" || change="attach-session"
+	if [ "$1" ]; then
+		$X "$change" -t "$1" 2>/dev/null || ($X new-session -d -s "$1" && $X "$change" -t "$1")
+		return
+	fi
+	session=$($X list-sessions -F "#{session_name}" 2>/dev/null | fzf --exit-0) && $X "$change" -t "$session" || return
+}
+
+createWindow() {
+	session=$1
+	window=$2
+	shift
+	shift
+	hasWindow=$($X list-windows -t "$session" | grep "$window")
+	if [[ -z "$hasWindow" ]]; then
+		($X neww -t "$session": -n "$window" -d "$@")
+	else
+		echo duplicate window: "$window"
+	fi
+}
+
+helpMenu() {
+	echo "FTMUX: Tmux Utilities to improve functionality"
+	echo "-h: help"
+	echo "-np: select next pane"
+	echo "-pp: select previous pane"
+	echo "-r: resize (equal splits)"
+	echo "-N: session number"
+	echo "-b: break active pane to new window"
+	echo "-s: create session. Followed by <session-name>"
+	echo "-k: kill session. Followed by <session-name> (cannot be attached session)"
+	echo "-n: create new session"
+	echo "-s: list / create new session"
+	echo "-c: send command to each pane. Followed by <arg>"
+	echo "        -arg: -a | -w | -s. Followed by actual command. eg 'ls'"
+	echo "            -a: all session panes"
+	echo "            -w: window panes"
+	echo "            -s: session panes"
+	echo "-t: echo simple tmux commands. Followed by <arg>"
+	echo "        -arg: -p | -pt | -w"
+	echo "            -p: pane id"
+	echo "            -pt: pane title"
+	echo "            -w: window name"
+}
+
+checkEmpty() {
+	arg="$1"
+	if [ -z "$arg" ]; then
+		echo "missing actual command."
+		exit 1
+	fi
+}
+
+prevPane() {
+	paneIdx=$($X display -p '#{pane_index}')
+	prevIdx=$((paneIdx - 1))
+	count=$($X list-panes -F '#{pane_id}' | awk 'END {print NR}')
+	if [ "$prevIdx" -lt 1 ]; then
+		prevIdx=$count
+	fi
+	prevId=$($X list-panes -F '#{pane_id}' | xargs | awk -v var="$prevIdx" '{print $var}')
+	($X select-pane -Z -t "$prevId")
+}
+
+nextPane() {
+	paneIdx=$($X display -p '#{pane_index}')
+	nextIdx=$((paneIdx + 1))
+	count=$($X list-panes -F '#{pane_id}' | awk 'END {print NR}')
+	if [ "$count" -lt "$nextIdx" ]; then
+		nextIdx=1
+	fi
+	nextId=$($X list-panes -F '#{pane_id}' | xargs | awk -v var=$nextIdx '{print $var}')
+	($X select-pane -Z -t "$nextId")
+}
+
+simpleCommands() {
+	case "$arg" in
+	"-p") ($X run-shell -b 'echo pane id is #{pane_id}') ;;
+	"-pt") ($X run-shell -b 'echo pane title is #{pane_title}') ;;
+	"-w") $X run-shell -b 'echo window name is #{window_name}' ;;
+	*) echo "Unavailables ... $cmd" ;;
+	esac
+}
+
+firstSession() {
+	session="rvim"
+
+	createSession $session "new" "$HOME/.config/rvim"
+	createWindow "$session" "config" -c "$HOME/Downloads"
+
+	# Get first window
+	firstWindow=$(getSessionWindowId "$session" 0)
+	firstPane=$(getWindowPaneId "$firstWindow" 0)
+	splitPane -v -c "$HOME/docs" -t "$firstPane"
+
+	# Get second window
+	secondWindow=$(getSessionWindowId "$session" 1)
+	firstPane=$(getWindowPaneId "$secondWindow" 0)
+	splitPane -v -c "$HOME/.local/bin" -t "$firstPane"
+}
+
+originMedia() {
+	session="origin-media"
+	repo="$HOME/personal/workspace/rgt/Origin-Media"
+
+	createSession $session "admin" "$repo/om-admin"
+	createWindow "$session" "api" -c "$repo/om-api"
+	createWindow "$session" "core" -c "$repo/om-core"
+
+	# admin
+	firstWindow=$(getSessionWindowId "$session" 0)
+	firstPane=$(getWindowPaneId "$firstWindow" 0)
+	splitPane -v -c "$repo/om-admin" -t "$firstPane"
+	secondPane=$(getWindowPaneId "$firstWindow" 1)
+	$X send-keys -t "$secondPane" "yarn dev" "C-m"
+
+	# api
+	secondWindow=$(getSessionWindowId "$session" 1)
+	firstPane=$(getWindowPaneId "$secondWindow" 0)
+	splitPane -v -c "$repo/om-api" -t "$firstPane"
+	secondPane=$(getWindowPaneId "$secondWindow" 1)
+	$X send-keys -t "$secondPane" "go run main.go local_dev" "C-m"
+
+	# core
+	thirdWindow=$(getSessionWindowId "$session" 2)
+	firstPane=$(getWindowPaneId "$thirdWindow" 0)
+	splitPane -v -c "$repo/om-core" -t "$firstPane"
+}
+
+coaNodejsApi() {
+	session="coa-nodejs-api"
+	repo="$HOME/personal/workspace/coding/interview/coa/nodejs-api-app"
+
+	createSession $session "api" "$repo"
+	createWindow "$session" "run" -c "$repo"
+
+	# api
+	firstWindow=$(getSessionWindowId "$session" 0)
+	firstPane=$(getWindowPaneId "$firstWindow" 0)
+	splitPane -v -c "$WORKSPACE/coding/portfolio/youtube-clone/youtube-clone-backend" -t "$firstPane"
+
+	# run
+	secondWindow=$(getSessionWindowId "$session" 1)
+	firstPane=$(getWindowPaneId "$secondWindow" 0)
+	splitPane -v -c "$repo" -t "$firstPane"
+	$X send-keys -t "$firstPane" "yarn dev" "C-m"
+
+}
+
+while [ "$#" -gt 0 ]; do
+	curr=$1
+	shift
+
+	case "$curr" in
+	-h | --help) helpMenu ;;
+	-np | --nextpane) nextPane ;;
+	-pp | --prevpane) prevPane ;;
+	-r | --resize) resizePane ;;
+	-num) sessionNumber ;;
+	-name) sessionName ;;
+	-b | --break) breakPane ;;
+	-B | --break-into-session) breakIntoSession ;;
+	--first) firstSession ;;
+	--om) originMedia ;;
+	--coa) coaNodejsApi ;;
+	-c | --command)
+		arg=$1
+		checkEmpty "$arg"
+		shift
+		case "$arg" in
+		"-a") panes=$(panesList -a | xargs) ;;
+		"-w") panes=$(panesList -w | xargs) ;;
+		"-s")
+			# echo session: $1
+			if [ $# -lt 2 ]; then
+				echo "missing session name or command"
+				exit 1
+			else
+				# panes=$(panesList -s "$1" | xargs | cut -b 13-)
+				panes=$(panesList -s "$1")
+			fi
+			;;
+		*) echo "Unavailable ... $cmd" ;;
+		esac
+		if [ "$arg" = "-s" ]; then
+			shift
+		fi
+		# echo panes: "$panes"
+		cmd=$1
+		# echo cmd: $cmd
+		checkEmpty "$cmd"
+		shift
+		first=$(echo "$panes" | cut -b 2)                        # first pane_id (num)
+		len=$(echo "$panes" | awk '{print substr($0,length,1)}') # last pane_id use for len
+		cc=1                                                     # why:  pane id starting from num > 1
+		for ((i = first; i <= len; i++)); do
+			curr=$(echo "$panes" | cut -d ' ' -f $cc)
+			cc=$((cc + 1))
+			# echo sending cmd: "$cmd" to "$curr" hello
+			$X send-keys -t "$curr" "$cmd" "C-m"
+		done
+		;;
+	-t)
+		arg=$1
+		checkEmpty "$arg"
+		shift
+		simpleCommands "$arg"
+		;;
+	-k | --kill)
+		if [ "$#" -gt 0 ]; then
+			arg="$*"
+		else
+			read -rp "Enter session name: " arg
+		fi
+		checkEmpty "$arg"
+		killSession "$arg"
+		;;
+	-s | --list-sessions) listSessions "$@" ;;
+	-n | --new-session)
+		if [ "$#" -gt 0 ]; then
+			arg="$*"
+		else
+			read -rp "Enter session name: " arg
+		fi
+		checkEmpty "$arg"
+		createSession "$arg"
+		exit 1
+		;;
+	*) echo "Unavailable command... $curr" ;;
+	esac
+done
