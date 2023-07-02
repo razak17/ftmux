@@ -128,6 +128,13 @@ checkEmpty() {
 	fi
 }
 
+stringArrayCount() {
+	# Use the read command to split the input string into an array
+	read -ra string_array <<<"$@"
+	count="${#string_array[@]}"
+	echo "$count"
+}
+
 #-------------------------------------------------------------------------------
 #  Commands
 #-------------------------------------------------------------------------------
@@ -277,11 +284,13 @@ helpMenu() {
 	echo "-r, --resize        resize (equal splits)"
 	echo "-num                session number"
 	echo "-name               session name"
+	echo "--keys              send keys to pane"
 	echo "-b, --break         break active pane to new window"
 	echo "-k, --kill          kill session. Followed by <session-name> (cannot be attached session)"
 	echo "-K, --kill-all      kill session. Followed by <session-name> (cannot be attached session)"
 	echo "-n, --new-sessiion  create new session"
 	echo "-s, --list-sessions list / create new session"
+	echo "-w, --new-window    create new window"
 	echo "-c, --command       send command to each pane. Followed by <arg>"
 	echo "                        -arg: -a | -w | -s. Followed by actual command. eg 'ls'"
 	echo "                          -a: all session panes"
@@ -388,9 +397,7 @@ while [ "$#" -gt 0 ]; do
 		shift
 		checkEmpty "$pId"
 		sendKeysToPane "$pId" "$@"
-		# Use the read command to split the input string into an array
-		read -ra string_array <<<"$@"
-		count="${#string_array[@]}"
+		count=$(stringArrayCount "$@")
 		while [ "$count" -gt 0 ]; do
 			# echo "Count: $count"
 			shift
@@ -449,6 +456,14 @@ while [ "$#" -gt 0 ]; do
 		fi
 		checkEmpty "$arg"
 		killSession "$arg"
+		;;
+	-w | --new-window)
+		createWindow "$@"
+		count=$(stringArrayCount "$@")
+		while [ "$count" -gt 0 ]; do
+			shift
+			((count--))
+		done
 		;;
 	-s | --list-sessions) listSessions "$@" ;;
 	-n | --new-session)
