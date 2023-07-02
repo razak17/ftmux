@@ -459,21 +459,25 @@ while [ "$#" -gt 0 ]; do
 		;;
 	-w | --new-window)
 		createWindow "$@"
-		count=$(stringArrayCount "$@")
-		while [ "$count" -gt 0 ]; do
-			shift
-			((count--))
-		done
+		exit 1
 		;;
 	-s | --list-sessions) listSessions "$@" ;;
 	-n | --new-session)
-		if [ "$#" -gt 0 ]; then
-			arg="$*"
-		else
+		session=$1
+		window=$2
+		shift
+		shift
+		if [ -z "$session" ] && [ -z "$window" ]; then
 			read -rp "Enter session name: " arg
+			checkEmpty "$arg"
+			createSession "$arg"
+			exit 1
 		fi
-		checkEmpty "$arg"
-		createSession "$arg"
+		if [ "$#" -gt 0 ]; then
+			createSession "$session" "$window" "$@"
+		else
+			createSession "$session" "$window"
+		fi
 		exit 1
 		;;
 	*) echo "Unavailable command... $curr" ;;
