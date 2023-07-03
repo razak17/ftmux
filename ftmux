@@ -282,9 +282,9 @@ helpMenu() {
 	echo "-np, --nextpane     select next pane"
 	echo "-pp, --prevpane     select previous pane"
 	echo "-r, --resize        resize (equal splits)"
-	echo "-num                session number"
-	echo "-name               session name"
-	echo "--keys              send keys to pane"
+	echo "--num               session number"
+	echo "--name              session name"
+	echo "--send-keys         send keys to pane"
 	echo "-b, --break         break active pane to new window"
 	echo "-k, --kill          kill session. Followed by <session-name> (cannot be attached session)"
 	echo "-K, --kill-all      kill session. Followed by <session-name> (cannot be attached session)"
@@ -385,14 +385,14 @@ while [ "$#" -gt 0 ]; do
 	-np | --nextpane) nextPane ;;
 	-pp | --prevpane) prevPane ;;
 	-r | --resize) resizePane ;;
-	-num) sessionNumber ;;
-	-name) sessionName ;;
+	--num) sessionNumber ;;
+	--name) sessionName ;;
 	-b | --break) breakPane ;;
 	-B | --break-into-session) breakIntoSession ;;
 	--first) firstSession ;;
 	--om) originMedia ;;
 	--coa) coaNodejsApi ;;
-	--keys)
+	--send-keys)
 		pId=$1
 		shift
 		checkEmpty "$pId"
@@ -459,6 +459,18 @@ while [ "$#" -gt 0 ]; do
 		;;
 	-w | --new-window)
 		createWindow "$@"
+		exit 1
+		;;
+	--session-win-id)
+		getSessionWindowId "$@"
+		exit 1
+		;;
+	--window-pane-id)
+		getWindowPaneId "$@"
+		exit 1
+		;;
+	--split-pane)
+		splitPane "$@"
 		exit 1
 		;;
 	-s | --list-sessions) listSessions "$@" ;;
