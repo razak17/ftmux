@@ -127,6 +127,20 @@ checkEmpty() {
 	fi
 }
 
+checkOutsideTmux() {
+	if [ -z "$TMUX" ]; then
+		echo "Can only run this command inside a tmux session"
+		exit 1
+	fi
+}
+
+checkInTmux() {
+	if [ -n "$TMUX" ]; then
+		echo "Cannot run this command inside a tmux session"
+		exit 1
+	fi
+}
+
 stringArrayCount() {
 	# Use the read command to split the input string into an array
 	read -ra string_array <<<"$@"
@@ -139,24 +153,29 @@ stringArrayCount() {
 #-------------------------------------------------------------------------------
 
 sessionNumber() {
+	checkOutsideTmux
 	res=$($X display -p '#{session_id}' | cut -b 2-)
 	echo "$res"
 }
 
 sessionName() {
+	checkOutsideTmux
 	res=$($X display -p '#{session_name}')
 	echo "$res"
 }
 
 resizePane() {
+	checkOutsideTmux
 	($X resizep -x 50% -y 50%)
 }
 
 breakPane() {
+	checkOutsideTmux
 	$X break-pane -P -F '#{session_name}:#{window_index}.#{pane_index}' -n 'break'
 }
 
 prevPane() {
+	checkOutsideTmux
 	paneIdx=$($X display -p '#{pane_index}')
 	prevIdx=$((paneIdx - 1))
 	count=$($X list-panes -F '#{pane_id}' | awk 'END {print NR}')
@@ -168,6 +187,7 @@ prevPane() {
 }
 
 nextPane() {
+	checkOutsideTmux
 	paneIdx=$($X display -p '#{pane_index}')
 	nextIdx=$((paneIdx + 1))
 	count=$($X list-panes -F '#{pane_id}' | awk 'END {print NR}')
@@ -218,23 +238,25 @@ createSession() {
 
 killSession() {
 	session=$1
+	shift
 	current=$($X display -p '#S')
 	target=$($X list-sessions -F \#S | grep "$session")
 
-	printf "session: %s, target: %s.\n" "$session" "$target"
-	shift
-	if [ "$current" == "$session" ]; then
+	# printf "session: %s, target: %s.\n" "$session" "$target"
+
+	if [ "$target" != "$session" ]; then
+		printf "session '%s' does not exist. Available sessions:\n" "$session"
+		($X list-sessions)
+		exit 1
+	fi
+
+	if [ -z "$TMUX" ]; then
+		($X kill-session -t "$session")
+	elif [ "$current" == "$session" ]; then
 		printf "cannot delete attached session '%s'.\n" "$session"
 		exit 1
 	fi
-	if [ "$target" == "$session" ]; then
-		printf "session '%s' has been deleted.\n" "$session"
-		($X kill-session -t "$session")
-	else
-		printf "session '%s' does not exist. Available sessions:\n" "$session"
-		($X list-sessions)
-	fi
-	exit 1
+	printf "session '%s' has been deleted.\n" "$session"
 }
 
 breakIntoSession() {
@@ -257,6 +279,7 @@ listSessions() {
 }
 
 killAllSessions() {
+	checkInTmux
 	if [ -n "$TMUX" ]; then
 		echo "Cannot run this command inside a tmux session"
 		exit 1
@@ -386,6 +409,7 @@ while [ "$#" -gt 0 ]; do
 		fi
 		checkEmpty "$arg"
 		killSession "$arg"
+		exit 1
 		;;
 	-w | --new-window)
 		createWindow "$@"
