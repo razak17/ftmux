@@ -250,7 +250,7 @@ killSession() {
 		exit 1
 	fi
 
-	if [ -z "$TMUX" ]; then
+	if [ -n "$TMUX" ]; then
 		($X kill-session -t "$session")
 	elif [ "$current" == "$session" ]; then
 		printf "cannot delete attached session '%s'.\n" "$session"
