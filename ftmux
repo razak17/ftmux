@@ -89,21 +89,7 @@ getWindowPaneId() {
 
 hasSession() {
 	session=$1
-
-	cmd=$($X has-session -t "$session" &>/dev/null && echo "true" || echo "false")
-
-	if [ "$cmd" == "true" ]; then
-		echo "true"
-	else
-		echo "false"
-	fi
-
-	# sessionExists=$($X list-sessions -F \#S | grep "$session")
-	# if [ "$session" == "$sessionExists" ]; then
-	# 	echo "true"
-	# else
-	# 	echo "false"
-	# fi
+	$X has-session -t "$session" &>/dev/null && echo true || echo false
 }
 
 createWindow() {
@@ -213,8 +199,7 @@ createSession() {
 	shift
 	shift
 
-	sessionExists=$(hasSession "$session")
-	if [ "$sessionExists" == "true" ]; then
+	if [[ $(hasSession "$session") == true ]]; then
 		echo "Session '$session' already exists. Aborting ..." && exit 1
 	fi
 
@@ -343,6 +328,10 @@ while [ "$#" -gt 0 ]; do
 	-b | --break) breakPane ;;
 	-B | --break-into-session) breakIntoSession ;;
 	--first) firstSession ;;
+	--has-session | -has)
+		hasSession "$1"
+		shift
+		;;
 	--om) originMedia ;;
 	--coa) coaNodejsApi ;;
 	--send-keys)
