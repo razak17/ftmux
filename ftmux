@@ -184,6 +184,15 @@ nextPane() {
 	($X select-pane -Z -t "$nextId")
 }
 
+# Have to clear terminal before running this command
+clearHistory() {
+	checkOutsideTmux
+	paneId=$(getPanesIds -p)
+	# echo "$paneId"
+	# sendKeysToPane "$paneId" "clear" "C-m"
+	tmux run-shell -C "clear-history"
+}
+
 simpleCommands() {
 	case "$arg" in
 	"-p") ($X run-shell -b 'echo pane id is #{pane_id}') ;;
@@ -327,6 +336,7 @@ while [ "$#" -gt 0 ]; do
 	--name) sessionName ;;
 	-b | --break) breakPane ;;
 	-B | --break-into-session) breakIntoSession ;;
+	--clear-history) clearHistory ;;
 	--first) firstSession ;;
 	--has-session | -has)
 		hasSession "$1"
