@@ -259,6 +259,40 @@ killSession() {
 	printf "session '%s' has been deleted.\n" "$session"
 }
 
+killSessionFzf() {
+	session=$1
+	shift
+	current=$($X display -p '#S')
+	sessions=$($X list-sessions -F \#S)
+
+	if [ -z "$sessions" ]; then
+		echo "No sessions to kill."
+		exit 0
+	fi
+
+	if [ -n "$TMUX" ]; then
+		sessions=$(echo "$sessions" | grep -v "$current")
+	fi
+
+	selected=$(echo "$sessions" | fzf --no-sort)
+
+	if [[ -z "$selected" ]]; then
+		exit 0
+	fi
+
+	if [ -n "$TMUX" ]; then
+		# NOTE: Hever hits this condition
+		if [ "$current" == "$selected" ]; then
+			printf "cannot delete attached session '%s'.\n" "$current"
+			exit 0
+		fi
+	fi
+
+	($X kill-session -t "$selected")
+	printf "session '%s' has been deleted.\n" "$selected"
+	exit 0
+}
+
 breakIntoSession() {
 	paneIdx=$($X display -p '#{pane_index}')
 	window_name=$($X display -p '#{window_name}')
@@ -300,25 +334,26 @@ helpMenu() {
 	printf "\n"
 	echo "Options:"
 	printf "\n"
-	echo "-h, --help          help"
-	echo "-np, --nextpane     select next pane"
-	echo "-pp, --prevpane     select previous pane"
-	echo "-r, --resize        resize (equal splits)"
-	echo "--num               session number"
-	echo "--name              session name"
-	echo "--send-keys         send keys to pane"
-	echo "-b, --break         break active pane to new window"
-	echo "-k, --kill          kill session. Followed by <session-name> (cannot be attached session)"
-	echo "-K, --kill-all      kill session. Followed by <session-name> (cannot be attached session)"
-	echo "-n, --new-sessiion  create new session"
-	echo "-s, --list-sessions list / create new session"
-	echo "-w, --new-window    create new window"
-	echo "-c, --command       send command to each pane. Followed by <arg>"
+	echo "-h, --help           help"
+	echo "-np, --nextpane      select next pane"
+	echo "-pp, --prevpane      select previous pane"
+	echo "-r, --resize         resize (equal splits)"
+	echo "--num                session number"
+	echo "--name               session name"
+	echo "--send-keys          send keys to pane"
+	echo "-b,  --break         break active pane to new window"
+	echo "-k,  --kill          kill session. Followed by <session-name> (cannot be attached session)"
+	echo "-kp, --kill-fzf      kill session with fzf. excludes current session"
+	echo "-K,  --kill-all      kill session. Followed by <session-name> (cannot be attached session)"
+	echo "-n,  --new-sessiion  create new session"
+	echo "-s,  --list-sessions list / create new session"
+	echo "-w,  --new-window    create new window"
+	echo "-c,  --command       send command to each pane. Followed by <arg>"
 	echo "                        -arg: -a | -w | -s. Followed by actual command. eg 'ls'"
 	echo "                          -a: all session panes"
 	echo "                          -w: window panes"
 	echo "                          -s: session panes"
-	echo "-t                  echo simple tmux commands. Followed by <arg>"
+	echo "-t                   echo simple tmux commands. Followed by <arg>"
 	echo "                        -arg: -p | -pt | -w"
 	echo "                          -p: pane id"
 	echo "                          -pt: pane title"
@@ -415,6 +450,9 @@ while [ "$#" -gt 0 ]; do
 		checkEmpty "$arg"
 		killSession "$arg"
 		exit 1
+		;;
+	-kp | --kill-fzf)
+		killSessionFzf "$@"
 		;;
 	-w | --new-window)
 		createWindow "$@"
