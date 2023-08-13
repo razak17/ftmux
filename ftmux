@@ -265,13 +265,13 @@ killSessionFzf() {
 	current=$($X display -p '#S')
 	sessions=$($X list-sessions -F \#S)
 
+	if [ -n "$TMUX" ]; then
+		sessions=$(echo "$sessions" | grep -v "$current")
+	fi
+
 	if [ -z "$sessions" ]; then
 		echo "No sessions to kill."
 		exit 0
-	fi
-
-	if [ -n "$TMUX" ]; then
-		sessions=$(echo "$sessions" | grep -v "$current")
 	fi
 
 	selected=$(echo "$sessions" | fzf --no-sort)
