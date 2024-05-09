@@ -379,6 +379,15 @@ while [ "$#" -gt 0 ]; do
 	-B | --break-into-session) breakIntoSession ;;
 	--clear-history) clearHistory ;;
 	--first) firstSession ;;
+	--install)
+		mkdir -p "$HOME/.local/bin"
+		if [ -e "$HOME/.local/bin/ftmux" ]; then
+			echo "ftmux already exists in $HOME/.local/bin"
+			exit 1
+		fi
+		ln -s "$HOME/.dots/ftmux/ftmux" "$HOME/.local/bin/ftmux"
+		echo "ftmux installed"
+		;;
 	--has-session | -has)
 		hasSession "$1"
 		shift
