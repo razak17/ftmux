@@ -281,8 +281,7 @@ killSessionFzf() {
 	fi
 
   ($X kill-session -t "$selected")
-	printf "session '%s' has been deleted.\n" "$selected"
-	exit 0
+  notify-send -t 2000 "Tmux" "Session $selected has been deleted."
 }
 
 breakIntoSession() {
