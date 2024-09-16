@@ -280,15 +280,7 @@ killSessionFzf() {
 		exit 0
 	fi
 
-	if [ -n "$TMUX" ]; then
-		# NOTE: Hever hits this condition
-		if [ "$current" == "$selected" ]; then
-			printf "cannot delete attached session '%s'.\n" "$current"
-			exit 0
-		fi
-	fi
-
-	($X kill-session -t "$selected")
+  ($X kill-session -t "$selected")
 	printf "session '%s' has been deleted.\n" "$selected"
 	exit 0
 }
