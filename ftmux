@@ -274,7 +274,7 @@ killSessionFzf() {
 		exit 0
 	fi
 
-	selected=$(echo "$sessions" | fzf --no-sort)
+  selected=$(echo "$sessions" | fzf)
 
 	if [[ -z "$selected" ]]; then
 		exit 0
