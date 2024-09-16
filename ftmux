@@ -7,131 +7,131 @@ X="tmux -L Dev"
 #-------------------------------------------------------------------------------
 
 getPanesIds() {
-	tag=$1
-	sessionOrWindowId=$2
-	case "$tag" in
-	"-p") paneId=$($X display -p '#{pane_id}') ;;
-	"-s") paneId=$($X list-panes -s -F '#D' -t "$sessionOrWindowId") ;;
-	"-w") paneId=$($X list-panes -F '#D' -t "$sessionOrWindowId") ;;
-	"-a") paneId=$($X list-panes -a -F '#D') ;;
-	*) echo "Unavailable command... $curr" ;;
-	esac
-	echo "$paneId"
+  tag=$1
+  sessionOrWindowId=$2
+  case "$tag" in
+  "-p") paneId=$($X display -p '#{pane_id}') ;;
+  "-s") paneId=$($X list-panes -s -F '#D' -t "$sessionOrWindowId") ;;
+  "-w") paneId=$($X list-panes -F '#D' -t "$sessionOrWindowId") ;;
+  "-a") paneId=$($X list-panes -a -F '#D') ;;
+  *) echo "Unavailable command... $curr" ;;
+  esac
+  echo "$paneId"
 }
 
 getWindowsIds() {
-	tag=$1
-	session=$2
-	case "$tag" in
-	"-s") windowIds=$($X list-windows -F '#{window_id}' -t "$session") ;;
-	"-a") windowIds=$($X list-windows -a -F '#{window_id}') ;;
-	*) echo "Unavailable command... $curr" ;;
-	esac
-	echo "$windowIds"
+  tag=$1
+  session=$2
+  case "$tag" in
+  "-s") windowIds=$($X list-windows -F '#{window_id}' -t "$session") ;;
+  "-a") windowIds=$($X list-windows -a -F '#{window_id}') ;;
+  *) echo "Unavailable command... $curr" ;;
+  esac
+  echo "$windowIds"
 }
 
 panesList() {
-	tag=$1
-	shift
-	case "$tag" in
-	"-a") panes=$($X list-panes -a -F '#D') ;;
-	"-w") panes=$($X list-panes -F '#D') ;;
-	"-s")
-		if [ $# -gt 0 ]; then
-			panes=$($X list-panes -sF "#D" -t "$@")
-		else
-			echo "option requires an argument a target session"
-			exit 1
-		fi
-		;;
-	*) echo "Unavailable command... $curr" ;;
-	esac
-	echo "$panes"
+  tag=$1
+  shift
+  case "$tag" in
+  "-a") panes=$($X list-panes -a -F '#D') ;;
+  "-w") panes=$($X list-panes -F '#D') ;;
+  "-s")
+    if [ $# -gt 0 ]; then
+      panes=$($X list-panes -sF "#D" -t "$@")
+    else
+      echo "option requires an argument a target session"
+      exit 1
+    fi
+    ;;
+  *) echo "Unavailable command... $curr" ;;
+  esac
+  echo "$panes"
 }
 
 splitPane() {
-	split=$1
-	shift
-	cmd="$X splitw"
-	case "$split" in
-	-v) cmd="$cmd -h $*" ;;
-	-h) cmd="$cmd -v $*" ;;
-	*) echo "Unavailable command... $curr" ;;
-	esac
-	eval "$cmd"
+  split=$1
+  shift
+  cmd="$X splitw"
+  case "$split" in
+  -v) cmd="$cmd -h $*" ;;
+  -h) cmd="$cmd -v $*" ;;
+  *) echo "Unavailable command... $curr" ;;
+  esac
+  eval "$cmd"
 }
 
 getSessionWindowId() {
-	session=$1
-	windowIndex=$2
-	shift
-	shift
-	if [ $# -gt 0 ] || [ "$session" == '' ] || [ "$windowIndex" == '' ]; then
-		echo "error: getSessionWindowId requires two arguments" && exit 1
-	fi
-	cmd=$(getWindowsIds -s "$session" | awk '{ printf "%s ", $0 }')
-	IFS=' ' read -ra ids <<<"$cmd"
-	echo "${ids[$windowIndex]}"
+  session=$1
+  windowIndex=$2
+  shift
+  shift
+  if [ $# -gt 0 ] || [ "$session" == '' ] || [ "$windowIndex" == '' ]; then
+    echo "error: getSessionWindowId requires two arguments" && exit 1
+  fi
+  cmd=$(getWindowsIds -s "$session" | awk '{ printf "%s ", $0 }')
+  IFS=' ' read -ra ids <<<"$cmd"
+  echo "${ids[$windowIndex]}"
 }
 
 getWindowPaneId() {
-	window=$1
-	paneIndex=$2
-	shift
-	shift
-	if [ $# -gt 0 ] || [ "$window" == '' ] || [ "$paneIndex" == '' ]; then
-		echo "error: getWindowPaneId requires two arguments" && exit 1
-	fi
-	panesIds=$(getPanesIds -w "$window" | awk '{ printf "%s ", $0 }')
-	IFS=' ' read -ra ids <<<"$panesIds"
-	echo "${ids[$paneIndex]}"
+  window=$1
+  paneIndex=$2
+  shift
+  shift
+  if [ $# -gt 0 ] || [ "$window" == '' ] || [ "$paneIndex" == '' ]; then
+    echo "error: getWindowPaneId requires two arguments" && exit 1
+  fi
+  panesIds=$(getPanesIds -w "$window" | awk '{ printf "%s ", $0 }')
+  IFS=' ' read -ra ids <<<"$panesIds"
+  echo "${ids[$paneIndex]}"
 }
 
 hasSession() {
-	session=$1
-	$X has-session -t "$session" &>/dev/null && echo true || echo false
+  session=$1
+  $X has-session -t "$session" &>/dev/null && echo true || echo false
 }
 
 createWindow() {
-	session=$1
-	window=$2
-	shift
-	shift
-	hasWindow=$($X list-windows -t "$session" | grep "$window")
-	if [[ -z "$hasWindow" ]]; then
-		($X neww -t "$session": -n "$window" -d "$@")
-	else
-		echo duplicate window: "$window"
-	fi
+  session=$1
+  window=$2
+  shift
+  shift
+  hasWindow=$($X list-windows -t "$session" | grep "$window")
+  if [[ -z "$hasWindow" ]]; then
+    ($X neww -t "$session": -n "$window" -d "$@")
+  else
+    echo duplicate window: "$window"
+  fi
 }
 
 checkEmpty() {
-	arg="$1"
-	if [ -z "$arg" ]; then
-		echo "some argument(s) are missing."
-		exit 1
-	fi
+  arg="$1"
+  if [ -z "$arg" ]; then
+    echo "some argument(s) are missing."
+    exit 1
+  fi
 }
 
 checkOutsideTmux() {
-	if [ -z "$TMUX" ]; then
-		echo "Can only run this command inside a tmux session"
-		exit 1
-	fi
+  if [ -z "$TMUX" ]; then
+    echo "Can only run this command inside a tmux session"
+    exit 1
+  fi
 }
 
 checkInTmux() {
-	if [ -n "$TMUX" ]; then
-		echo "Cannot run this command inside a tmux session"
-		exit 1
-	fi
+  if [ -n "$TMUX" ]; then
+    echo "Cannot run this command inside a tmux session"
+    exit 1
+  fi
 }
 
 stringArrayCount() {
-	# Use the read command to split the input string into an array
-	read -ra string_array <<<"$@"
-	count="${#string_array[@]}"
-	echo "$count"
+  # Use the read command to split the input string into an array
+  read -ra string_array <<<"$@"
+  count="${#string_array[@]}"
+  echo "$count"
 }
 
 #-------------------------------------------------------------------------------
@@ -139,190 +139,200 @@ stringArrayCount() {
 #-------------------------------------------------------------------------------
 
 sessionNumber() {
-	checkOutsideTmux
-	res=$($X display -p '#{session_id}' | cut -b 2-)
-	echo "$res"
+  checkOutsideTmux
+  res=$($X display -p '#{session_id}' | cut -b 2-)
+  echo "$res"
 }
 
 sessionName() {
-	checkOutsideTmux
-	res=$($X display -p '#{session_name}')
-	echo "$res"
+  checkOutsideTmux
+  res=$($X display -p '#{session_name}')
+  echo "$res"
 }
 
 resizePane() {
-	checkOutsideTmux
-	($X resizep -x 50% -y 50%)
+  checkOutsideTmux
+  ($X resizep -x 50% -y 50%)
 }
 
 breakPane() {
-	checkOutsideTmux
-	$X break-pane -P -F '#{session_name}:#{window_index}.#{pane_index}' -n 'break'
+  checkOutsideTmux
+  $X break-pane -P -F '#{session_name}:#{window_index}.#{pane_index}' -n 'break'
 }
 
 prevPane() {
-	checkOutsideTmux
-	paneIdx=$($X display -p '#{pane_index}')
-	prevIdx=$((paneIdx - 1))
-	count=$($X list-panes -F '#{pane_id}' | awk 'END {print NR}')
-	if [ "$prevIdx" -lt 1 ]; then
-		prevIdx=$count
-	fi
-	prevId=$($X list-panes -F '#{pane_id}' | xargs | awk -v var="$prevIdx" '{print $var}')
-	($X select-pane -Z -t "$prevId")
+  checkOutsideTmux
+  paneIdx=$($X display -p '#{pane_index}')
+  prevIdx=$((paneIdx - 1))
+  count=$($X list-panes -F '#{pane_id}' | awk 'END {print NR}')
+  if [ "$prevIdx" -lt 1 ]; then
+    prevIdx=$count
+  fi
+  prevId=$($X list-panes -F '#{pane_id}' | xargs | awk -v var="$prevIdx" '{print $var}')
+  ($X select-pane -Z -t "$prevId")
 }
 
 nextPane() {
-	checkOutsideTmux
-	paneIdx=$($X display -p '#{pane_index}')
-	nextIdx=$((paneIdx + 1))
-	count=$($X list-panes -F '#{pane_id}' | awk 'END {print NR}')
-	if [ "$count" -lt "$nextIdx" ]; then
-		nextIdx=1
-	fi
-	nextId=$($X list-panes -F '#{pane_id}' | xargs | awk -v var=$nextIdx '{print $var}')
-	($X select-pane -Z -t "$nextId")
+  checkOutsideTmux
+  paneIdx=$($X display -p '#{pane_index}')
+  nextIdx=$((paneIdx + 1))
+  count=$($X list-panes -F '#{pane_id}' | awk 'END {print NR}')
+  if [ "$count" -lt "$nextIdx" ]; then
+    nextIdx=1
+  fi
+  nextId=$($X list-panes -F '#{pane_id}' | xargs | awk -v var=$nextIdx '{print $var}')
+  ($X select-pane -Z -t "$nextId")
 }
 
 # Have to clear terminal before running this command
 clearHistory() {
-	checkOutsideTmux
-	paneId=$(getPanesIds -p)
-	# echo "$paneId"
-	# sendKeysToPane "$paneId" "clear" "C-m"
-	tmux run-shell -C "clear-history"
+  checkOutsideTmux
+  paneId=$(getPanesIds -p)
+  # echo "$paneId"
+  # sendKeysToPane "$paneId" "clear" "C-m"
+  tmux run-shell -C "clear-history"
 }
 
 simpleCommands() {
-	case "$arg" in
-	"-p") ($X run-shell -b 'echo pane id is #{pane_id}') ;;
-	"-pt") ($X run-shell -b 'echo pane title is #{pane_title}') ;;
-	"-w") $X run-shell -b 'echo window name is #{window_name}' ;;
-	*) echo "Unavailables ... $cmd" ;;
-	esac
+  case "$arg" in
+  "-p") ($X run-shell -b 'echo pane id is #{pane_id}') ;;
+  "-pt") ($X run-shell -b 'echo pane title is #{pane_title}') ;;
+  "-w") $X run-shell -b 'echo window name is #{window_name}' ;;
+  *) echo "Unavailables ... $cmd" ;;
+  esac
 }
 
 createSession() {
-	session=$1
-	window=$2
-	shift
-	shift
+  session=$1
+  window=$2
+  shift
+  shift
 
-	if [[ $(hasSession "$session") == true ]]; then
-		echo "Session '$session' already exists. Aborting ..." && exit 1
-	fi
+  if [[ $(hasSession "$session") == true ]]; then
+    echo "Session '$session' already exists. Aborting ..." && exit 1
+  fi
 
-	# ($X list-sessions -F \#S | awk '{print $1}')
-	# printf "hasSession: %s.\n" "$hasSession"
-	# printf "session: %s, window: %s.\n" "$session" "$window"
-	if [ "$#" -gt 0 ]; then
-		cmd="$X new -s $session -d -c$* -n $window > /dev/null 2>&1"
-	elif [ -z "$window" ]; then
-		cmd="$X new -d -s $session > /dev/null 2>&1"
-	else
-		cmd="$X new -s $session -d -n $window > /dev/null 2>&1"
-	fi
-	printf "session '%s' has been created.\n" "$session"
-	eval "$cmd"
+  # ($X list-sessions -F \#S | awk '{print $1}')
+  # printf "hasSession: %s.\n" "$hasSession"
+  # printf "session: %s, window: %s.\n" "$session" "$window"
+  if [ "$#" -gt 0 ]; then
+    cmd="$X new -s $session -d -c$* -n $window > /dev/null 2>&1"
+  elif [ -z "$window" ]; then
+    cmd="$X new -d -s $session > /dev/null 2>&1"
+  else
+    cmd="$X new -s $session -d -n $window > /dev/null 2>&1"
+  fi
+  printf "session '%s' has been created.\n" "$session"
+  eval "$cmd"
 
-	# printf "session '%s' has been created.\n" "$session"
-	# $X attach-session -t "$session" 2>/dev/null || $X new -s "$session" -d -n "$window"
-	# $X attach-session -t "$session" 2>/dev/null || echo "lalal"
+  # printf "session '%s' has been created.\n" "$session"
+  # $X attach-session -t "$session" 2>/dev/null || $X new -s "$session" -d -n "$window"
+  # $X attach-session -t "$session" 2>/dev/null || echo "lalal"
 }
 
 killSession() {
-	session=$1
-	shift
-	current=$($X display -p '#S')
-	target=$($X list-sessions -F \#S | grep "$session")
+  session=$1
+  shift
+  current=$($X display -p '#S')
+  target=$($X list-sessions -F \#S | grep "$session")
 
-	# printf "session: %s, target: %s.\n" "$session" "$target"
+  # printf "session: %s, target: %s.\n" "$session" "$target"
 
-	if [ "$target" != "$session" ]; then
-		printf "session '%s' does not exist. Available sessions:\n" "$session"
-		($X list-sessions)
-		exit 1
-	fi
+  if [ "$target" != "$session" ]; then
+    printf "session '%s' does not exist. Available sessions:\n" "$session"
+    ($X list-sessions)
+    exit 1
+  fi
 
-	if [ -z "$TMUX" ]; then
-		($X kill-session -t "$session")
-		printf "session '%s' has been deleted.\n" "$session"
-		exit 1
-	fi
+  if [ -z "$TMUX" ]; then
+    ($X kill-session -t "$session")
+    printf "session '%s' has been deleted.\n" "$session"
+    exit 1
+  fi
 
-	if [ "$current" == "$session" ]; then
-		printf "cannot delete attached session '%s'.\n" "$session"
-		exit 1
-	fi
+  if [ "$current" == "$session" ]; then
+    printf "cannot delete attached session '%s'.\n" "$session"
+    exit 1
+  fi
 
-	($X kill-session -t "$session")
-	printf "session '%s' has been deleted.\n" "$session"
+  ($X kill-session -t "$session")
+  printf "session '%s' has been deleted.\n" "$session"
 }
 
 killSessionFzf() {
-	session=$1
-	shift
-	current=$($X display -p '#S')
-	sessions=$($X list-sessions -F \#S)
+  session=$1
+  shift
+  current=$($X display -p '#S')
+  sessions=$($X list-sessions -F \#S)
 
-	if [ -n "$TMUX" ]; then
-		sessions=$(echo "$sessions" | grep -v "$current")
-	fi
+  if [ -n "$TMUX" ]; then
+    sessions=$(echo "$sessions" | grep -v "$current")
+  fi
 
-	if [ -z "$sessions" ]; then
-		echo "No sessions to kill."
-		exit 0
-	fi
+  if [ -z "$sessions" ]; then
+    echo "No sessions to kill."
+    exit 0
+  fi
 
-  selected=$(echo "$sessions" | fzf)
+  selected=$(echo "$sessions" | fzf -m)
 
-	if [[ -z "$selected" ]]; then
-		exit 0
-	fi
+  if [[ -z "$selected" ]]; then
+    exit 0
+  fi
+
+  # check for multiple selections
+  if [[ $(echo "$selected" | wc -l) -gt 1 ]]; then
+    # Delete each selected session
+    while IFS='\n' read -r line; do
+      $X kill-session -t "$line"
+    done <<<"$selected"
+    notify-send -t 2000 "Tmux" "Multiple sessions were deleted."
+    exit 0
+  fi
 
   ($X kill-session -t "$selected")
   notify-send -t 2000 "Tmux" "Session $selected has been deleted."
 }
 
 breakIntoSession() {
-	paneIdx=$($X display -p '#{pane_index}')
-	window_name=$($X display -p '#{window_name}')
-	createSession "$window_name"
-	$X kill-pane -t "$paneIdx"
+  paneIdx=$($X display -p '#{pane_index}')
+  window_name=$($X display -p '#{window_name}')
+  createSession "$window_name"
+  $X kill-pane -t "$paneIdx"
 }
 
 # will attach to (if it exists), else it will create it.
 # with one session open, it will attach to that session.
 # with more than one session open it will let you select the session via fzf.
 listSessions() {
-	[[ -n "$TMUX" ]] && change="switch-client" || change="attach-session"
-	if [ "$1" ]; then
-		$X "$change" -t "$1" 2>/dev/null || ($X new-session -d -s "$1" && $X "$change" -t "$1")
-		return
-	fi
-	session=$($X list-sessions -F "#{session_name}" 2>/dev/null | fzf) && $X "$change" -t "$session" || return
+  [[ -n "$TMUX" ]] && change="switch-client" || change="attach-session"
+  if [ "$1" ]; then
+    $X "$change" -t "$1" 2>/dev/null || ($X new-session -d -s "$1" && $X "$change" -t "$1")
+    return
+  fi
+  session=$($X list-sessions -F "#{session_name}" 2>/dev/null | fzf) && $X "$change" -t "$session" || return
 }
 
 killAllSessions() {
-	checkInTmux
-	if [ -n "$TMUX" ]; then
-		echo "Cannot run this command inside a tmux session"
-		exit 1
-	fi
-	$X list-sessions | grep -E -v '\(attached\)$' | while IFS='\n' read -r line; do
-		$X kill-session -t "${line%%:*}"
-	done
+  checkInTmux
+  if [ -n "$TMUX" ]; then
+    echo "Cannot run this command inside a tmux session"
+    exit 1
+  fi
+  $X list-sessions | grep -E -v '\(attached\)$' | while IFS='\n' read -r line; do
+    $X kill-session -t "${line%%:*}"
+  done
 }
 
 sendKeysToPane() {
-	paneId=$1
-	shift
-	$X send-keys -t "$paneId" "$@"
+  paneId=$1
+  shift
+  $X send-keys -t "$paneId" "$@"
 }
 
 helpMenu() {
   echo "Usage: ftmux [options]"
-	echo "Options:"
+  echo "Options:"
   echo "  -np, --nextpane        Select the next pane"
   echo "  -pp, --prevpane        Select the previous pane"
   echo "  -r, --resize           Resize the current pane"
@@ -357,139 +367,139 @@ helpMenu() {
 #-------------------------------------------------------------------------------
 
 while [ "$#" -gt 0 ]; do
-	curr=$1
-	shift
+  curr=$1
+  shift
 
-	case "$curr" in
-	-h | --help) helpMenu ;;
-	-np | --nextpane) nextPane ;;
-	-pp | --prevpane) prevPane ;;
-	-r | --resize) resizePane ;;
-	--num) sessionNumber ;;
-	--name) sessionName ;;
-	-b | --break) breakPane ;;
-	-B | --break-into-session) breakIntoSession ;;
-	--clear-history) clearHistory ;;
-	--first) firstSession ;;
-	--install)
-		mkdir -p "$HOME/.local/bin"
-		if [ -e "$HOME/.local/bin/ftmux" ]; then
-			echo "ftmux already exists in $HOME/.local/bin"
-			exit 1
-		fi
-		ln -s "$HOME/.dots/ftmux/ftmux" "$HOME/.local/bin/ftmux"
-		echo "ftmux installed"
-		;;
-	--has-session | -has)
-		hasSession "$1"
-		shift
-		;;
-	--om) originMedia ;;
-	--coa) coaNodejsApi ;;
-	--send-keys)
-		pId=$1
-		shift
-		checkEmpty "$pId"
-		sendKeysToPane "$pId" "$@"
-		count=$(stringArrayCount "$@")
-		while [ "$count" -gt 0 ]; do
-			# echo "Count: $count"
-			shift
-			((count--))
-		done
-		;;
-	-c | --command)
-		arg=$1
-		checkEmpty "$arg"
-		shift
-		case "$arg" in
-		"-a") panes=$(panesList -a | xargs) ;;
-		"-w") panes=$(panesList -w | xargs) ;;
-		"-s")
-			# echo session: $1
-			if [ $# -lt 2 ]; then
-				echo "missing session name or command"
-				exit 1
-			else
-				# panes=$(panesList -s "$1" | xargs | cut -b 13-)
-				panes=$(panesList -s "$1")
-			fi
-			;;
-		*) echo "Unavailable ... $cmd" ;;
-		esac
-		if [ "$arg" = "-s" ]; then
-			shift
-		fi
-		# echo panes: "$panes"
-		cmd=$1
-		# echo cmd: $cmd
-		checkEmpty "$cmd"
-		shift
-		first=$(echo "$panes" | cut -b 2)                        # first pane_id (num)
-		len=$(echo "$panes" | awk '{print substr($0,length,1)}') # last pane_id use for len
-		cc=1                                                     # why:  pane id starting from num > 1
-		for ((i = first; i <= len; i++)); do
-			curr=$(echo "$panes" | cut -d ' ' -f $cc)
-			cc=$((cc + 1))
-			# echo sending cmd: "$cmd" to "$curr" hello
-			sendKeysToPane "$curr" "$cmd" "C-m"
-		done
-		;;
-	-t)
-		arg=$1
-		checkEmpty "$arg"
-		shift
-		simpleCommands "$arg"
-		;;
-	-K | --kill-all) killAllSessions ;;
-	-k | --kill)
-		if [ "$#" -gt 0 ]; then
-			arg="$*"
-		else
-			read -rp "Enter session name: " arg
-		fi
-		checkEmpty "$arg"
-		killSession "$arg"
-		exit 1
-		;;
-	-kp | --kill-fzf)
-		killSessionFzf "$@"
-		;;
-	-w | --new-window)
-		createWindow "$@"
-		exit 1
-		;;
-	--session-win-id)
-		getSessionWindowId "$@"
-		exit 1
-		;;
-	--window-pane-id)
-		getWindowPaneId "$@"
-		exit 1
-		;;
-	--split-pane)
-		splitPane "$@"
-		exit 1
-		;;
-	-s | --list-sessions) listSessions "$@" ;;
-	-n | --new-session)
-		session=$1
-		window=$2
-		shift
-		shift
-		if [ -z "$session" ] && [ -z "$window" ]; then
-			read -rp "Enter session name: " arg
-			checkEmpty "$arg"
-			createSession "$arg"
-			exit 1
-		fi
-		if [ "$#" -gt 0 ]; then
-			createSession "$session" "$window" "$@"
-		else
-			createSession "$session" "$window"
-		fi
-		exit 1
-		;;
-	*) echo "Unavailable command... $curr" ;;
-	esac
+  case "$curr" in
+  -h | --help) helpMenu ;;
+  -np | --nextpane) nextPane ;;
+  -pp | --prevpane) prevPane ;;
+  -r | --resize) resizePane ;;
+  --num) sessionNumber ;;
+  --name) sessionName ;;
+  -b | --break) breakPane ;;
+  -B | --break-into-session) breakIntoSession ;;
+  --clear-history) clearHistory ;;
+  --first) firstSession ;;
+  --install)
+    mkdir -p "$HOME/.local/bin"
+    if [ -e "$HOME/.local/bin/ftmux" ]; then
+      echo "ftmux already exists in $HOME/.local/bin"
+      exit 1
+    fi
+    ln -s "$HOME/.dots/ftmux/ftmux" "$HOME/.local/bin/ftmux"
+    echo "ftmux installed"
+    ;;
+  --has-session | -has)
+    hasSession "$1"
+    shift
+    ;;
+  --om) originMedia ;;
+  --coa) coaNodejsApi ;;
+  --send-keys)
+    pId=$1
+    shift
+    checkEmpty "$pId"
+    sendKeysToPane "$pId" "$@"
+    count=$(stringArrayCount "$@")
+    while [ "$count" -gt 0 ]; do
+      # echo "Count: $count"
+      shift
+      ((count--))
+    done
+    ;;
+  -c | --command)
+    arg=$1
+    checkEmpty "$arg"
+    shift
+    case "$arg" in
+    "-a") panes=$(panesList -a | xargs) ;;
+    "-w") panes=$(panesList -w | xargs) ;;
+    "-s")
+      # echo session: $1
+      if [ $# -lt 2 ]; then
+        echo "missing session name or command"
+        exit 1
+      else
+        # panes=$(panesList -s "$1" | xargs | cut -b 13-)
+        panes=$(panesList -s "$1")
+      fi
+      ;;
+    *) echo "Unavailable ... $cmd" ;;
+    esac
+    if [ "$arg" = "-s" ]; then
+      shift
+    fi
+    # echo panes: "$panes"
+    cmd=$1
+    # echo cmd: $cmd
+    checkEmpty "$cmd"
+    shift
+    first=$(echo "$panes" | cut -b 2)                        # first pane_id (num)
+    len=$(echo "$panes" | awk '{print substr($0,length,1)}') # last pane_id use for len
+    cc=1                                                     # why:  pane id starting from num > 1
+    for ((i = first; i <= len; i++)); do
+      curr=$(echo "$panes" | cut -d ' ' -f $cc)
+      cc=$((cc + 1))
+      # echo sending cmd: "$cmd" to "$curr" hello
+      sendKeysToPane "$curr" "$cmd" "C-m"
+    done
+    ;;
+  -t)
+    arg=$1
+    checkEmpty "$arg"
+    shift
+    simpleCommands "$arg"
+    ;;
+  -K | --kill-all) killAllSessions ;;
+  -k | --kill)
+    if [ "$#" -gt 0 ]; then
+      arg="$*"
+    else
+      read -rp "Enter session name: " arg
+    fi
+    checkEmpty "$arg"
+    killSession "$arg"
+    exit 1
+    ;;
+  -kp | --kill-fzf)
+    killSessionFzf "$@"
+    ;;
+  -w | --new-window)
+    createWindow "$@"
+    exit 1
+    ;;
+  --session-win-id)
+    getSessionWindowId "$@"
+    exit 1
+    ;;
+  --window-pane-id)
+    getWindowPaneId "$@"
+    exit 1
+    ;;
+  --split-pane)
+    splitPane "$@"
+    exit 1
+    ;;
+  -s | --list-sessions) listSessions "$@" ;;
+  -n | --new-session)
+    session=$1
+    window=$2
+    shift
+    shift
+    if [ -z "$session" ] && [ -z "$window" ]; then
+      read -rp "Enter session name: " arg
+      checkEmpty "$arg"
+      createSession "$arg"
+      exit 1
+    fi
+    if [ "$#" -gt 0 ]; then
+      createSession "$session" "$window" "$@"
+    else
+      createSession "$session" "$window"
+    fi
+    exit 1
+    ;;
+  *) echo "Unavailable command... $curr" ;;
+  esac
 done
