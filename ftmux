@@ -301,6 +301,69 @@ breakIntoSession() {
   $X kill-pane -t "$paneIdx"
 }
 
+copyRepoLink() {
+  panePath=$1
+  shift
+  # Remove file:// prefix if present
+  path="${panePath#file://}"
+  # Handle empty path
+  if [ -z "$path" ]; then
+    notify-send -t 2000 "Tmux" "Error: Invalid path provided"
+    return 1
+  fi
+  # Navigate to the path
+  if ! cd "$path" 2>/dev/null; then
+    notify-send -t 2000 "Tmux" "Error: Cannot access directory '$path'"
+    return 1
+  fi
+  url=$(git remote get-url origin)
+  if [ -n "$url" ]; then
+    # Try multiple methods to copy to clipboard
+    if command -v xsel &>/dev/null; then
+      printf '%s' "$url" | xsel -b -i
+      notify-send -t 2000 "Tmux" "GitHub URL copied to clipboard: $url"
+    elif command -v xclip &>/dev/null; then
+      printf '%s' "$url" | xclip -selection clipboard
+      notify-send -t 2000 "Tmux" "GitHub URL copied to clipboard: $url"
+    else
+      notify-send -t 2000 "Tmux" "No clipboard tool found. URL: $url"
+      return 1
+    fi
+  else
+    notify-send -t 2000 "Tmux" "Error: No git repository found in '$path'"
+    return 1
+  fi
+}
+
+openRepo() {
+  panePath=$1
+  shift
+  # Remove file:// prefix if present
+  path="${panePath#file://}"
+  # Handle empty path
+  if [ -z "$path" ]; then
+    notify-send -t 2000 "Tmux" "Error: Invalid path provided"
+    return 1
+  fi
+  # Navigate to the path
+  if ! cd "$path" 2>/dev/null; then
+    notify-send -t 2000 "Tmux" "Error: Cannot access directory '$path'"
+    return 1
+  fi
+  url=$(git remote get-url origin)
+  if [ -n "$url" ]; then
+    # Convert SSH URL to HTTPS if necessary
+    if [[ "$url" == git@* ]]; then
+      url=$(echo "$url" | sed -e 's/^git@/https:\/\//' -e 's/:/\//')
+    fi
+    xdg-open "$url" &>/dev/null
+    notify-send -t 2000 "Tmux" "Opening GitHub URL: $url"
+  else
+    notify-send -t 2000 "Tmux" "Error: No git repository found in '$path'"
+    return 1
+  fi
+}
+
 # will attach to (if it exists), else it will create it.
 # with one session open, it will attach to that session.
 # with more than one session open it will let you select the session via fzf.
@@ -345,9 +408,9 @@ helpMenu() {
   echo "  --first                Attach to the first session"
   echo "  --install              Install ftmux"
   echo "  --has-session, -has    Check if a session exists"
-  echo "  --om                   Open origin-media"
-  echo "  --coa                  Open coa-nodejs-api"
   echo "  --send-keys            Send keys to a pane"
+  echo "  --copy-repo-link       Copy the GitHub repository link of the current pane's directory"
+  echo "  --open-repo            Open the GitHub repository of the current pane's directory"
   echo "  -c, --command          Send a command to all panes"
   echo "  -t                     Run simple commands"
   echo "  -K, --kill-all         Kill all sessions"
@@ -394,8 +457,16 @@ while [ "$#" -gt 0 ]; do
     hasSession "$1"
     shift
     ;;
-  --om) originMedia ;;
-  --coa) coaNodejsApi ;;
+  --copy-repo-link)
+    path=$($X display-message -p "#{pane_current_path}")
+    checkEmpty "$path"
+    copyRepoLink "$path"
+    ;;
+  --open-repo)
+    path=$($X display-message -p "#{pane_current_path}")
+    checkEmpty "$path"
+    openRepo "$path"
+    ;;
   --send-keys)
     pId=$1
     shift
