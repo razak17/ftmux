@@ -190,6 +190,7 @@ clearHistory() {
   paneId=$(getPanesIds -p)
   # echo "$paneId"
   # sendKeysToPane "$paneId" "clear" "C-m"
+  $X display-message "Pane '$paneId' cleared."
   tmux run-shell -C "clear-history"
 }
 
