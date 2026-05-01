@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 X="tmux -L Dev"
+POPUP_PREFIX="_popup_"
 
 #-------------------------------------------------------------------------------
 #  Helpers
@@ -267,7 +268,7 @@ killSessionFzf() {
   sessions=$($X list-sessions -F \#S)
 
   if [ -n "$TMUX" ]; then
-    sessions=$(echo "$sessions" | grep -v "$current")
+    sessions=$(echo "$sessions" | grep -v "$current" | grep -v "$POPUP_PREFIX")
   fi
 
   if [ -z "$sessions" ]; then
@@ -374,7 +375,7 @@ listSessions() {
     $X "$change" -t "$1" 2>/dev/null || ($X new-session -d -s "$1" && $X "$change" -t "$1")
     return
   fi
-  session=$($X list-sessions -F "#{session_name}" 2>/dev/null | fzf) && $X "$change" -t "$session" || return
+  session=$($X list-sessions -F "#{session_name}" 2>/dev/null | grep -v "$POPUP_PREFIX" | fzf) && $X "$change" -t "$session" || return
 }
 
 killAllSessions() {
@@ -390,6 +391,55 @@ sendKeysToPane() {
   $X send-keys -t "$paneId" "$@"
 }
 
+#-------------------------------------------------------------------------------
+#  Popup Terminal
+#-------------------------------------------------------------------------------
+popupTerminal() {
+  session="$($X display -p "$POPUP_PREFIX#S")"
+
+  if ! $X has -t "$session" 2>/dev/null; then
+    parent_session="$($X display -p '#{session_id}')"
+    session_id="$($X new-session -c '#{pane_current_path}' -dP -s "$session" -F '#{session_id}' -e TMUX_PARENT_SESSION="$parent_session")"
+    $X set-option -t "$session_id" key-table popup \; \
+      set-option -t "$session_id" status off \; \
+      set-option -t "$session_id" prefix None \; \
+      attach -t "$session"
+  fi
+
+  $X attach -t "$session" >/dev/null
+}
+
+prevSession() {
+  checkOutsideTmux
+  sessions=($($X list-sessions -F "#{session_name}" | grep -v "$POPUP_PREFIX"))
+  current=$($X display -p '#{session_name}')
+  count=${#sessions[@]}
+  for i in "${!sessions[@]}"; do
+    if [[ "${sessions[$i]}" == "$current" ]]; then
+      prevIndex=$(((i - 1 + count) % count))
+      $X switch-client -t "${sessions[$prevIndex]}"
+      break
+    fi
+  done
+}
+
+nextSession() {
+  checkOutsideTmux
+  sessions=($($X list-sessions -F "#{session_name}" | grep -v "$POPUP_PREFIX"))
+  current=$($X display -p '#{session_name}')
+  count=${#sessions[@]}
+  for i in "${!sessions[@]}"; do
+    if [[ "${sessions[$i]}" == "$current" ]]; then
+      nextIndex=$(((i + 1) % count))
+      $X switch-client -t "${sessions[$nextIndex]}"
+      break
+    fi
+  done
+}
+
+#-------------------------------------------------------------------------------
+#  Help Menu
+#-------------------------------------------------------------------------------
 helpMenu() {
   echo "Usage: ftmux [options]"
   echo "Options:"
@@ -432,6 +482,9 @@ while [ "$#" -gt 0 ]; do
 
   case "$curr" in
   -h | --help) helpMenu ;;
+  -popup) popupTerminal ;;
+  -ns | --nextsession) nextSession ;;
+  -ps | --prevsession) prevSession ;;
   -np | --nextpane) nextPane ;;
   -pp | --prevpane) prevPane ;;
   -r | --resize) resizePane ;;
