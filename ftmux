@@ -379,10 +379,6 @@ listSessions() {
 
 killAllSessions() {
   checkInTmux
-  if [ -n "$TMUX" ]; then
-    echo "Cannot run this command inside a tmux session"
-    exit 1
-  fi
   $X list-sessions | grep -E -v '\(attached\)$' | while IFS='\n' read -r line; do
     $X kill-session -t "${line%%:*}"
   done
