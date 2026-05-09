@@ -398,7 +398,7 @@ popupTerminal() {
   session="$($X display -p "$POPUP_PREFIX#S")"
 
   if ! $X has -t "$session" 2>/dev/null; then
-    parent_session="$($X display -p '#{session_id}')"
+    parent_session="$($X display -p '#S')"
     session_id="$($X new-session -c '#{pane_current_path}' -dP -s "$session" -F '#{session_id}' -e TMUX_PARENT_SESSION="$parent_session")"
     $X set-option -t "$session_id" key-table popup \; \
       set-option -t "$session_id" status off \; \
