@@ -402,11 +402,10 @@ popupTerminal() {
     session_id="$($X new-session -c '#{pane_current_path}' -dP -s "$session" -F '#{session_id}' -e TMUX_PARENT_SESSION="$parent_session")"
     $X set-option -t "$session_id" key-table popup \; \
       set-option -t "$session_id" status off \; \
-      set-option -t "$session_id" prefix None \; \
-      attach -t "$session"
+      set-option -t "$session_id" prefix None
   fi
 
-  $X attach -t "$session" >/dev/null
+  exec env -u TMUX $X attach-session -t "$session" >/dev/null
 }
 
 prevSession() {
