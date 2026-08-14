@@ -185,12 +185,11 @@ nextPane() {
   ($X select-pane -Z -t "$nextId")
 }
 
-# Have to clear terminal before running this command
 clearHistory() {
   checkOutsideTmux
   paneId=$(getPanesIds -p)
   # echo "$paneId"
-  # sendKeysToPane "$paneId" "clear" "C-m"
+  sendKeysToPane "$paneId" "clear" "C-m"
   $X display-message "Pane '$paneId' cleared."
   tmux run-shell -C "clear-history"
 }
